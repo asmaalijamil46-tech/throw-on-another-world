@@ -3,9 +3,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Throw a Ball on Another World</title>
 <style>
-:root{--bg:#f1f3ef;--panel:#fff;--ink:#1b2422;--mute:#58675f;--line:#cdd6d0;--acc:#0f766e;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+:root{--bg:#f1f3ef;--panel:#fff;--ink:#1b2422;--mute:#58675f;--line:#cdd6d0;--acc:#7c4dff
+    ;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111716;--panel:#1a2321;--ink:#e6f0eb;--mute:#9bada6;--line:#30403b;--acc:#3ccfbf;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#111716;--panel:#1a2321;--ink:#e6f0eb;--mute:#9bada6;--line:#30403b;--acc:#3ccfbf;color-scheme:dark}
+:root[data-theme="dark"]{--bg:#111716;--panel:#1a2321;--ink:#e6f0eb;--mute:#9bada6;--line:#30403b;--acc:hwb(241 24% 19%);color-scheme:dark}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 "Trebuchet MS",system-ui,sans-serif}
@@ -22,7 +23,7 @@ canvas{width:100%;height:min(62vh,520px);display:block;border-radius:10px;backgr
 .ctrl{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;align-items:end}
 label{display:block;font-size:14px;color:var(--mute)}
 label b{color:var(--ink);font-variant-numeric:tabular-nums}
-input[type=range]{width:100%;accent-color:var(--acc)}
+input[type=range]{width:100%;accent-color:#ff8a1f}
 #res{font-size:18px}
 #res small{display:block;color:var(--mute);font-size:14px;margin-top:2px}
 table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums;margin-top:6px}
@@ -50,6 +51,14 @@ input[type=range]::-moz-range-track{background:transparent}
 .sw input:checked{background:var(--acc)}
 .sw input:checked::after{left:23px}
 .card button.throw{margin-top:auto;width:100%;font-size:22px;padding:14px;letter-spacing:.5px}
+input[type=range]{-webkit-appearance:none;appearance:none;height:8px;border-radius:4px;cursor:pointer;background:linear-gradient(90deg,var(--acc) var(--p,0%),var(--line) var(--p,0%))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:28px;height:28px;border-radius:50%;background:#fff;border:5px solid var(--acc);box-shadow:0 2px 8px rgba(0,0,0,.4);transition:transform .15s,box-shadow .15s;cursor:grab}
+input[type=range]::-moz-range-thumb{width:28px;height:28px;box-sizing:border-box;border-radius:50%;background:#fff;border:5px solid var(--acc);box-shadow:0 2px 8px rgba(0,0,0,.4);transition:transform .15s,box-shadow .15s;cursor:grab}
+input[type=range]::-moz-range-track{background:transparent;height:8px}
+input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.25);box-shadow:0 0 0 8px color-mix(in srgb,var(--acc) 30%,transparent),0 2px 8px rgba(0,0,0,.4)}
+input[type=range]:hover::-moz-range-thumb{transform:scale(1.25);box-shadow:0 0 0 8px color-mix(in srgb,var(--acc) 30%,transparent),0 2px 8px rgba(0,0,0,.4)}
+input[type=range]:active::-webkit-slider-thumb{cursor:grabbing;transform:scale(1.1)}
+input[type=range]:active::-moz-range-thumb{cursor:grabbing;transform:scale(1.1)}
 </style></head>
 <body><main>
 <h1>Throw a ball on another world</h1>
@@ -145,7 +154,7 @@ if(S.on||S.land){var b=pos(S.t),bp=proj(b[0],Math.max(b[1],.12),b[2]),sh=proj(0,
 if(sh){x.fillStyle="rgba(0,0,0,.35)";x.beginPath();x.ellipse(sh[0],sh[1],Math.max(3,sh[2]*.2),Math.max(1.5,sh[2]*.06),0,0,7);x.fill()}
 if(bp){var r=Math.max(4,bp[2]*.12),gr=x.createRadialGradient(bp[0]-r*.35,bp[1]-r*.35,r*.1,bp[0],bp[1],r);gr.addColorStop(0,"#ffd0c2");gr.addColorStop(.5,"#e8452a");gr.addColorStop(1,"#7a1c0e");x.fillStyle=gr;x.beginPath();x.arc(bp[0],bp[1],r,0,7);x.fill()}
 x.fillStyle="#fff";x.font="700 15px sans-serif";x.shadowColor="rgba(0,0,0,.7)";x.shadowBlur=4;
-x.fillText("Height "+Math.max(b[1],0).toFixed(1)+" m",14,56);x.fillText("Distance "+(b[2]-.6).toFixed(1)+" m",14,78);x.shadowBlur=0}
+x.fillText("Height "+Math.max(b[1],0).toFixed(1)+" m",14,56);x.fillText(S.t>=S.Tf?"Landed at "+S.R.toFixed(1)+" m · rolled to "+(b[2]-.6).toFixed(1)+" m":"Distance "+(b[2]-.6).toFixed(1)+" m",14,78);x.shadowBlur=0}
 x.fillStyle="#fff";x.shadowColor="rgba(0,0,0,.7)";x.shadowBlur=4;x.font="700 18px sans-serif";x.fillText(p.n+"  ·  gravity "+p.g+" m/s²  ·  air "+($("dr").checked?RHO[cur]:0)+" kg/m³",14,28);
 if(S.on&&S.ts>1.05){x.font="13px sans-serif";x.fillText("Time sped up ×"+S.ts.toFixed(1),14,H-14)}x.shadowBlur=0}
 function loop(now){var dt=Math.min((now-last)/1000,.1);last=now;
