@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Throw a Ball on Another World</title>
+<style>
+:root{--bg:#f1f3ef;--panel:#fff;--ink:#1b2422;--mute:#58675f;--line:#cdd6d0;--acc:#0f766e;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111716;--panel:#1a2321;--ink:#e6f0eb;--mute:#9bada6;--line:#30403b;--acc:#3ccfbf;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#111716;--panel:#1a2321;--ink:#e6f0eb;--mute:#9bada6;--line:#30403b;--acc:#3ccfbf;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 "Trebuchet MS",system-ui,sans-serif}
+main{max-width:980px;margin:0 auto;padding:16px 14px 36px}
+h1{font:700 clamp(24px,5vw,36px)/1.1 Georgia,serif;margin:6px 0 4px}
+.sub{color:var(--mute);margin:0 0 12px}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+button{font:inherit;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+button[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:700}
+button.throw{background:#d9482b;border-color:#d9482b;color:#fff;font-weight:700;font-size:18px;padding:11px 26px}
+button:focus-visible,input:focus-visible{outline:3px solid #e6a823;outline-offset:2px}
+canvas{width:100%;height:min(62vh,520px);display:block;border-radius:10px;background:#000}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:10px}
+.ctrl{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;align-items:end}
+label{display:block;font-size:14px;color:var(--mute)}
+label b{color:var(--ink);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--acc)}
+#res{font-size:18px}
+#res small{display:block;color:var(--mute);font-size:14px;margin-top:2px}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums;margin-top:6px}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right}
+th:first-child,td:first-child{text-align:left}
+.wrap{overflow-x:auto}
+</style></head>
+<body><main>
+<h1>Throw a ball on another world</h1>
+<p class="sub">Pick a planet, stand on it, and throw. Same arm, different gravity.</p>
+<div class="row" id="pl" role="group" aria-label="Choose a planet"></div>
+<canvas id="c" role="img" aria-label="First-person view of a thrown ball"></canvas>
+<div class="panel">
+<div class="ctrl">
+<label>Throw speed: <b id="vv">20</b> m/s<input id="v" type="range" min="5" max="40" value="20"></label>
+<label>Throw angle: <b id="av">45</b>°<input id="a" type="range" min="5" max="85" value="45"></label>
+<div><button class="throw" id="go">Throw!</button></div>
+</div>
+</div>
+<div class="panel" id="res">Choose a planet and press Throw.</div>
+<div class="panel wrap"><b>Throw history</b>
+<table><thead><tr><th>Planet</th><th>Speed</th><th>Angle</th><th>Distance (m)</th><th>Peak height (m)</th><th>Air time (s)</th></tr></thead><tbody id="hist"></tbody></table></div>
+</main>
+<script>
+(function(){
+var PL=[
+{n:"Moon",g:1.62,sky:["#000","#05060a"],gr:"#8b8b8b",ln:"#e8e8e8",st:1},
+{n:"Mars",g:3.71,sky:["#7d4a2d","#e0a070"],gr:"#a4482a",ln:"#ffe0c8"},
+{n:"Earth",g:9.81,sky:["#3d86d6","#bfe3ff"],gr:"#4c9a3f",ln:"#ffffff"},
+{n:"Jupiter (cloud tops)",g:24.79,sky:["#5b3a1c","#d9a55f"],gr:"#b58a52",ln:"#fff0d0"},
+{n:"Pluto",g:0.62,sky:["#000","#0b0a14"],gr:"#a89c92",ln:"#f4ece6",st:1}];
+var cv=document.getElementById("c"),x=cv.getContext("2d"),W=1,H=1,cur=2,st=[],i;
+for(i=0;i<90;i++)st.push([Math.random(),Math.random(),Math.random()*1.4+.4]);
+var Y0=1.7,S={on:0,land:0,t:0,ts:1,vx:0,vy:0,T:0,R:0,pk:0,pitch:.08,trail:[]},last=performance.now();
+function $(id){return document.getElementById(id)}
+function size(){var d=window.devicePixelRatio||1,r=cv.getBoundingClientRect();W=r.width;H=r.height;cv.width=W*d;cv.height=H*d;x.setTransform(d,0,0,d,0,0)}
+function calc(g,v,a){var r=a*Math.PI/180,vx=v*Math.cos(r),vy=v*Math.sin(r),T=(vy+Math.sqrt(vy*vy+2*g*Y0))/g;return{vx:vx,vy:vy,T:T,R:vx*T,pk:Y0+vy*vy/(2*g)}}
+function vals(){return[+$("v").value,+$("a").value]}
+function nice(r){var p=Math.pow(10,Math.floor(Math.log10(r))),m=r/p;return(m<1.5?1:m<3.5?2:m<7.5?5:10)*p}
+function proj(px,py,pz){var c=Math.cos(S.pitch),s=Math.sin(S.pitch),dy=py-Y0,zc=pz*c+dy*s,yc=dy*c-pz*s,f=W*.85;if(zc<.3)return null;return[W/2+f*px/zc,H/2-f*yc/zc,f/zc]}
+function pos(t){return[0,Y0+S.vy*t-.5*PL[cur].g*t*t,.6+S.vx*t]}
+function draw(){
+var p=PL[cur],hz=H/2+W*.85*Math.tan(S.pitch),gd=x.createLinearGradient(0,0,0,Math.max(hz,10));
+gd.addColorStop(0,p.sky[0]);gd.addColorStop(1,p.sky[1]);x.fillStyle=gd;x.fillRect(0,0,W,H);
+if(p.st){x.fillStyle="#fff";st.forEach(function(s){var y=s[1]*Math.max(hz,0);x.globalAlpha=.4+.5*s[2]/1.8;x.fillRect(s[0]*W,y,s[2],s[2])});x.globalAlpha=1}
+if(hz<H){x.fillStyle=p.gr;x.fillRect(0,Math.max(hz,0),W,H)}
+var q=vals(),c=calc(p.g,q[0],q[1]),far=Math.max(c.R*1.15,10),step=nice(far/6),half=Math.max(4,step*.12);
+x.strokeStyle=p.ln;x.fillStyle=p.ln;x.lineWidth=1.5;x.font="12px sans-serif";
+for(var d=step;d<=far;d+=step){var a=proj(-half,0,d),b=proj(half,0,d);if(!a||!b)continue;x.globalAlpha=.7;x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(b[0],b[1]);x.stroke();x.globalAlpha=1;x.fillText(Math.round(d)+" m",a[0]-34,a[1]+4)}
+x.globalAlpha=.35;[-half,0,half].forEach(function(lx){var a=proj(lx,0,1),b=proj(lx,0,far);if(a&&b){x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(b[0],b[1]);x.stroke()}});x.globalAlpha=1;
+if(S.land){var f0=proj(0,0,.6+S.R),f1=proj(0,3,.6+S.R);if(f0&&f1){x.strokeStyle="#ff3b30";x.lineWidth=3;x.beginPath();x.moveTo(f0[0],f0[1]);x.lineTo(f1[0],f1[1]);x.stroke();x.fillStyle="#ff3b30";x.beginPath();x.moveTo(f1[0],f1[1]);x.lineTo(f1[0]+Math.max(10,f1[2]*1.2),f1[1]+Math.max(5,f1[2]*.5));x.lineTo(f1[0],f1[1]+Math.max(10,f1[2]));x.fill()}}
+x.fillStyle="#fff";S.trail.forEach(function(t,k){var a=proj(t[0],t[1],t[2]);if(a){x.globalAlpha=.25+.5*k/S.trail.length;x.beginPath();x.arc(a[0],a[1],2,0,7);x.fill()}});x.globalAlpha=1;
+if(S.on||S.land){var b=pos(S.t),bp=proj(b[0],Math.max(b[1],.12),b[2]),sh=proj(0,0,b[2]);
+if(sh){x.fillStyle="rgba(0,0,0,.35)";x.beginPath();x.ellipse(sh[0],sh[1],Math.max(3,sh[2]*.2),Math.max(1.5,sh[2]*.06),0,0,7);x.fill()}
+if(bp){x.fillStyle="#ff5a36";x.strokeStyle="#fff";x.lineWidth=1.5;x.beginPath();x.arc(bp[0],bp[1],Math.max(4,bp[2]*.12),0,7);x.fill();x.stroke()}
+x.fillStyle="#fff";x.font="700 15px sans-serif";x.shadowColor="rgba(0,0,0,.7)";x.shadowBlur=4;
+x.fillText("Height "+Math.max(b[1],0).toFixed(1)+" m",14,56);x.fillText("Distance "+(b[2]-.6).toFixed(1)+" m",14,78);x.shadowBlur=0}
+x.fillStyle="#fff";x.shadowColor="rgba(0,0,0,.7)";x.shadowBlur=4;x.font="700 18px sans-serif";x.fillText(p.n+"  ·  gravity "+p.g+" m/s²",14,28);
+if(S.on&&S.ts>1.05){x.font="13px sans-serif";x.fillText("Slow-motion off: time sped up ×"+S.ts.toFixed(1),14,H-14)}x.shadowBlur=0}
+function loop(now){var dt=Math.min((now-last)/1000,.1);last=now;
+if(S.on){S.t+=dt*S.ts;var b=pos(S.t);S.trail.push(b);if(S.t>=S.T){S.t=S.T;S.on=0;S.land=1;finish()}}
+var tg=.04;if(S.on){var b2=pos(S.t);tg=Math.max(-.1,Math.min(1.35,Math.atan2(b2[1]-Y0,b2[2])))}
+S.pitch+=(tg-S.pitch)*Math.min(1,dt*4);draw();requestAnimationFrame(loop)}
+function throwIt(){var q=vals(),g=PL[cur].g,c=calc(g,q[0],q[1]);S.vx=c.vx;S.vy=c.vy;S.T=c.T;S.R=c.R;S.pk=c.pk;S.t=0;S.on=1;S.land=0;S.trail=[];S.ts=Math.max(1,c.T/7);S.q=q}
+function finish(){var g=PL[cur].g,q=S.q,e=calc(9.81,q[0],q[1]),p=PL[cur];
+$("res").innerHTML="<b>"+p.n+":</b> the ball flew <b>"+S.R.toFixed(1)+" m</b> and peaked at <b>"+S.pk.toFixed(1)+" m</b> in "+S.T.toFixed(1)+" s."+
+"<small>The same throw on Earth: "+e.R.toFixed(1)+" m far, "+e.pk.toFixed(1)+" m high. Here it goes "+(S.R/e.R).toFixed(2)+"× as far.</small>";
+var tr=document.createElement("tr");tr.innerHTML="<td>"+p.n+"</td><td>"+q[0]+" m/s</td><td>"+q[1]+"°</td><td>"+S.R.toFixed(1)+"</td><td>"+S.pk.toFixed(1)+"</td><td>"+S.T.toFixed(1)+"</td>";
+$("hist").insertBefore(tr,$("hist").firstChild)}
+var pb=[];PL.forEach(function(p,k){var b=document.createElement("button");b.textContent=p.n.split(" ")[0];b.setAttribute("aria-pressed",k==cur);b.onclick=function(){cur=k;pb.forEach(function(o,j){o.setAttribute("aria-pressed",j==k)});S.on=0;S.land=0;S.trail=[];$("res").textContent="Now standing on "+p.n+". Press Throw."};pb.push(b);$("pl").appendChild(b)});
+["v","a"].forEach(function(id){$(id).oninput=function(){$(id+"v").textContent=this.value;if(!S.on){S.land=0;S.trail=[]}}});
+$("go").onclick=throwIt;window.addEventListener("resize",size);size();requestAnimationFrame(loop);
+})();
+</script>
+</body></html>
