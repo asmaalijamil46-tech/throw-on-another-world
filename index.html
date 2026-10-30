@@ -32,13 +32,14 @@ th:first-child,td:first-child{text-align:left}
 </style></head>
 <body><main>
 <h1>Throw a ball on another world</h1>
-<p class="sub">Pick a planet, stand on it, and throw. Same arm, different gravity.</p>
+<p class="sub">Pick a planet, stand on it, and throw. Real gravity, real air resistance, real bounces.</p>
 <div class="row" id="pl" role="group" aria-label="Choose a planet"></div>
 <canvas id="c" role="img" aria-label="First-person view of a thrown ball"></canvas>
 <div class="panel">
 <div class="ctrl">
 <label>Throw speed: <b id="vv">20</b> m/s<input id="v" type="range" min="5" max="40" value="20"></label>
 <label>Throw angle: <b id="av">45</b>°<input id="a" type="range" min="5" max="85" value="45"></label>
+<label><input type="checkbox" id="dr" checked> Air resistance on</label>
 <div><button class="throw" id="go">Throw!</button></div>
 </div>
 </div>
@@ -63,38 +64,76 @@ function calc(g,v,a){var r=a*Math.PI/180,vx=v*Math.cos(r),vy=v*Math.sin(r),T=(vy
 function vals(){return[+$("v").value,+$("a").value]}
 function nice(r){var p=Math.pow(10,Math.floor(Math.log10(r))),m=r/p;return(m<1.5?1:m<3.5?2:m<7.5?5:10)*p}
 function proj(px,py,pz){var c=Math.cos(S.pitch),s=Math.sin(S.pitch),dy=py-Y0,zc=pz*c+dy*s,yc=dy*c-pz*s,f=W*.85;if(zc<.3)return null;return[W/2+f*px/zc,H/2-f*yc/zc,f/zc]}
-function pos(t){return[0,Y0+S.vy*t-.5*PL[cur].g*t*t,.6+S.vx*t]}
+var DT=.004,RHO=[0,.02,1.225,.16,0],SUN=[14,9,16,4,2];
+function sim(k,v,a,dr){var g=PL[k].g,r=a*Math.PI/180,vx=v*Math.cos(r),vy=v*Math.sin(r),X=0,y=Y0,t=0,K=dr?.5*RHO[k]*.4*Math.PI*.037*.037/.145:0,pts=[[0,Y0]],f=null,pk=Y0;
+for(var n=0;n<600000;n++){var sp=Math.sqrt(vx*vx+vy*vy);vx-=K*sp*vx*DT;vy-=(g+K*sp*vy)*DT;X+=vx*DT;y+=vy*DT;t+=DT;if(y>pk)pk=y;
+if(y<=0){y=0;if(!f)f={R:X,T:t,pk:pk};if(Math.abs(vy)>.8){vy=-vy*.45;vx*=.75}else{vy=0;vx*=1-2.5*DT;if(vx<.05){pts.push([X,0]);break}}}
+pts.push([X,y])}
+if(!f)f={R:X,T:t,pk:pk};return{pts:pts,f:f}}
+function pos(t){var i=Math.min(S.pts.length-1,Math.floor(t/DT)),p=S.pts[i];return[0,p[1],.6+p[0]]}
+function rnd(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function el(a,b,c,d){x.beginPath();x.ellipse(a,b,Math.max(c,.3),Math.max(d,.3),0,0,7);x.fill()}
+var OBJ={},TEX=[
+[[0,40,.1,1.2,"#5c5c5c","#b9b9b9"],[1,45,.8,40,"#6b6b6b","#adadad"],[3,15,2,30,"#9a9a9a",0]],
+[[0,50,.1,1.4,"#6e2f1c","#cf7550"],[3,30,3,60,"#d27a50",0],[1,20,.6,25,"#8a4228","#c4694a"]],
+[[2,62,.15,.5,"#2f6e2a","#86cc60"],[4,10,.4,1.6,"#245a26","#4f9a3c"],[0,13,.1,.8,"#6e6a62","#b9b4a8"],[3,15,2,30,"#58a844",0]],
+[[3,60,5,90,"#f3dca8",0],[3,40,5,90,"#8b5b2c",0]],
+[[3,40,3,60,"#f0e6dc",0],[0,25,.1,1.2,"#6a4e40","#b49484"],[1,25,.8,30,"#a89a90","#efe5dc"],[3,10,3,50,"#8e7e72",0]]];
+function mk(k){var R=rnd(k*977+13),a=[],tot=0,T=TEX[k],i,j,u,t,z,r;T.forEach(function(q){tot+=q[1]});
+for(i=0;i<900;i++){u=R()*tot;for(j=0;j<T.length-1&&u>T[j][1];j++)u-=T[j][1];t=T[j];z=3*Math.pow(700,R());r=Math.min(t[2]+(t[3]-t[2])*Math.pow(R(),2.2),z*.4);a.push({t:t[0],z:z,x:(R()-.5)*2*(z*.9+8),r:r,c1:t[4],c2:t[5]})}
+return a.sort(function(p,q){return q.z-p.z})}
+function scatter(){var k=cur,a,air=RHO[k]>0,i,o,P,s,r,rx,ry,sx,sy,A,B,cy,h;if(!OBJ[k])OBJ[k]=mk(k);a=OBJ[k];
+for(i=0;i<a.length;i++){o=a[i];P=proj(o.x,0,o.z);if(!P)continue;s=P[2];r=o.r;rx=r*s;sx=P[0];sy=P[1];if(rx<.7||sx<-rx||sx>W+rx||sy<0)continue;
+x.globalAlpha=air?Math.max(.3,1-o.z/1800):1;
+if(o.t==0||o.t==4){x.fillStyle=o.c1;el(sx,sy-rx*.4,rx,rx*.6);x.fillStyle=o.c2;el(sx-rx*.25,sy-rx*.6,rx*.5,rx*.28)}
+else if(o.t==2){h=rx*1.6;x.lineWidth=Math.max(1,rx*.25);x.strokeStyle=o.c1;x.beginPath();x.moveTo(sx,sy);x.lineTo(sx-h*.4,sy-h);x.moveTo(sx,sy);x.lineTo(sx+h*.35,sy-h*.9);x.stroke();x.strokeStyle=o.c2;x.beginPath();x.moveTo(sx,sy);x.lineTo(sx+h*.05,sy-h*1.1);x.stroke()}
+else{A=proj(o.x,0,o.z-r);B=proj(o.x,0,o.z+r);ry=A&&B?(A[1]-B[1])/2:rx*.2;cy=A&&B?(A[1]+B[1])/2:sy;if(ry<.4)continue;
+if(o.t==1){x.fillStyle=o.c2;el(sx,cy,rx,ry);x.fillStyle=o.c1;el(sx,cy-ry*.08,rx*.82,ry*.8)}else{x.globalAlpha*=.45;x.fillStyle=o.c1;el(sx,cy,rx,ry)}}}
+x.globalAlpha=1}
+var RG=[[[.02,.7,"#7d7d7d"]],[[.03,.5,"#a85f40",1]],[[.05,.9,"#7aa0c4"],[.03,.8,"#4f7f5a"]],[],[[.07,.9,"#d8cec6",2]]];
+function ridge(hz){var k=cur,f=W*.85,N=90,i,u,m,h;RG[k].forEach(function(c,L){x.fillStyle=c[2];x.beginPath();x.moveTo(0,hz+2);
+for(i=0;i<=N;i++){u=i/N*18.8+L*2;m=Math.sin(u*1.3+k)*.5+Math.sin(u*3.1+k*2)*.3+Math.sin(u*7.7+k*5+L)*.2;if(c[3]==1)m=Math.min(m,.1);if(c[3]==2)m=Math.abs(m)*1.4-.2;h=Math.max(0,m+.6)*c[0]*f*c[1];x.lineTo(i/N*W,hz-h)}
+x.lineTo(W,hz+2);x.closePath();x.fill()})}
+function sky(hz){var k=cur,f=W*.85,i,ex,ey,g,cx,cy;
+if(k==0){ex=W*.28;ey=H/2-f*Math.tan(.3-S.pitch);g=x.createRadialGradient(ex-6,ey-6,2,ex,ey,24);g.addColorStop(0,"#bfe0ff");g.addColorStop(.6,"#2f6fc4");g.addColorStop(1,"#0b2a5a");x.fillStyle=g;el(ex,ey,24,24);x.fillStyle="rgba(255,255,255,.55)";el(ex-4,ey-5,12,4);el(ex+6,ey+7,9,3)}
+if(k==2){x.fillStyle="rgba(255,255,255,.75)";for(i=0;i<7;i++){cx=(i*.17+.05)*W;cy=H/2-f*Math.tan(.12+(i%3)*.1-S.pitch);el(cx,cy,60+i%3*20,12+i%2*5);el(cx+30,cy-6,40,10)}}}
 function draw(){
 var p=PL[cur],hz=H/2+W*.85*Math.tan(S.pitch),gd=x.createLinearGradient(0,0,0,Math.max(hz,10));
 gd.addColorStop(0,p.sky[0]);gd.addColorStop(1,p.sky[1]);x.fillStyle=gd;x.fillRect(0,0,W,H);
 if(p.st){x.fillStyle="#fff";st.forEach(function(s){var y=s[1]*Math.max(hz,0);x.globalAlpha=.4+.5*s[2]/1.8;x.fillRect(s[0]*W,y,s[2],s[2])});x.globalAlpha=1}
-if(hz<H){x.fillStyle=p.gr;x.fillRect(0,Math.max(hz,0),W,H)}
-var q=vals(),c=calc(p.g,q[0],q[1]),far=Math.max(c.R*1.15,10),step=nice(far/6),half=Math.max(4,step*.12);
+var sy=H/2-W*.85*Math.tan(.25-S.pitch),sx=W*.75,air=RHO[cur]>0;
+if(air){var sg=x.createRadialGradient(sx,sy,0,sx,sy,SUN[cur]*5);sg.addColorStop(0,"rgba(255,248,220,.8)");sg.addColorStop(1,"rgba(255,248,220,0)");x.fillStyle=sg;x.fillRect(sx-SUN[cur]*5,sy-SUN[cur]*5,SUN[cur]*10,SUN[cur]*10)}
+x.fillStyle="#fffbe6";x.beginPath();x.arc(sx,sy,SUN[cur],0,7);x.fill();
+sky(hz);ridge(hz);if(hz<H){x.fillStyle=p.gr;x.fillRect(0,Math.max(hz,0),W,H);var dg=x.createLinearGradient(0,Math.max(hz,0),0,H);dg.addColorStop(0,"rgba(0,0,0,0)");dg.addColorStop(1,"rgba(0,0,0,.28)");x.fillStyle=dg;x.fillRect(0,Math.max(hz,0),W,H)}
+if(air&&hz<H){var hg=x.createLinearGradient(0,hz,0,hz+H*.3);hg.addColorStop(0,p.sky[1]);hg.addColorStop(1,p.gr);x.globalAlpha=.75;x.fillStyle=hg;x.fillRect(0,Math.max(hz,0),W,H*.3);x.globalAlpha=1}
+scatter();var q=vals(),c=calc(p.g,q[0],q[1]),far=Math.max(c.R*1.15,10),step=nice(far/6),half=Math.max(4,step*.12);
+for(var k=0;k<60;k+=2){var A=k?proj(0,0,k*step):null,B=proj(0,0,(k+1)*step);var y1=A?A[1]:H,y2=B?B[1]:H;if(y2<y1&&y2<H&&y2>hz){x.fillStyle="rgba(255,255,255,.05)";x.fillRect(0,y2,W,Math.min(y1,H)-y2)}}
 x.strokeStyle=p.ln;x.fillStyle=p.ln;x.lineWidth=1.5;x.font="12px sans-serif";
 for(var d=step;d<=far;d+=step){var a=proj(-half,0,d),b=proj(half,0,d);if(!a||!b)continue;x.globalAlpha=.7;x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(b[0],b[1]);x.stroke();x.globalAlpha=1;x.fillText(Math.round(d)+" m",a[0]-34,a[1]+4)}
 x.globalAlpha=.35;[-half,0,half].forEach(function(lx){var a=proj(lx,0,1),b=proj(lx,0,far);if(a&&b){x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(b[0],b[1]);x.stroke()}});x.globalAlpha=1;
-if(S.land){var f0=proj(0,0,.6+S.R),f1=proj(0,3,.6+S.R);if(f0&&f1){x.strokeStyle="#ff3b30";x.lineWidth=3;x.beginPath();x.moveTo(f0[0],f0[1]);x.lineTo(f1[0],f1[1]);x.stroke();x.fillStyle="#ff3b30";x.beginPath();x.moveTo(f1[0],f1[1]);x.lineTo(f1[0]+Math.max(10,f1[2]*1.2),f1[1]+Math.max(5,f1[2]*.5));x.lineTo(f1[0],f1[1]+Math.max(10,f1[2]));x.fill()}}
+if((S.on||S.land)&&S.t>=S.Tf){var f0=proj(0,0,.6+S.R),f1=proj(0,3,.6+S.R);if(f0&&f1){x.strokeStyle="#ff3b30";x.lineWidth=3;x.beginPath();x.moveTo(f0[0],f0[1]);x.lineTo(f1[0],f1[1]);x.stroke();x.fillStyle="#ff3b30";x.beginPath();x.moveTo(f1[0],f1[1]);x.lineTo(f1[0]+Math.max(10,f1[2]*1.2),f1[1]+Math.max(5,f1[2]*.5));x.lineTo(f1[0],f1[1]+Math.max(10,f1[2]));x.fill()}}
 x.fillStyle="#fff";S.trail.forEach(function(t,k){var a=proj(t[0],t[1],t[2]);if(a){x.globalAlpha=.25+.5*k/S.trail.length;x.beginPath();x.arc(a[0],a[1],2,0,7);x.fill()}});x.globalAlpha=1;
 if(S.on||S.land){var b=pos(S.t),bp=proj(b[0],Math.max(b[1],.12),b[2]),sh=proj(0,0,b[2]);
 if(sh){x.fillStyle="rgba(0,0,0,.35)";x.beginPath();x.ellipse(sh[0],sh[1],Math.max(3,sh[2]*.2),Math.max(1.5,sh[2]*.06),0,0,7);x.fill()}
-if(bp){x.fillStyle="#ff5a36";x.strokeStyle="#fff";x.lineWidth=1.5;x.beginPath();x.arc(bp[0],bp[1],Math.max(4,bp[2]*.12),0,7);x.fill();x.stroke()}
+if(bp){var r=Math.max(4,bp[2]*.12),gr=x.createRadialGradient(bp[0]-r*.35,bp[1]-r*.35,r*.1,bp[0],bp[1],r);gr.addColorStop(0,"#ffd0c2");gr.addColorStop(.5,"#e8452a");gr.addColorStop(1,"#7a1c0e");x.fillStyle=gr;x.beginPath();x.arc(bp[0],bp[1],r,0,7);x.fill()}
 x.fillStyle="#fff";x.font="700 15px sans-serif";x.shadowColor="rgba(0,0,0,.7)";x.shadowBlur=4;
 x.fillText("Height "+Math.max(b[1],0).toFixed(1)+" m",14,56);x.fillText("Distance "+(b[2]-.6).toFixed(1)+" m",14,78);x.shadowBlur=0}
-x.fillStyle="#fff";x.shadowColor="rgba(0,0,0,.7)";x.shadowBlur=4;x.font="700 18px sans-serif";x.fillText(p.n+"  ·  gravity "+p.g+" m/s²",14,28);
-if(S.on&&S.ts>1.05){x.font="13px sans-serif";x.fillText("Slow-motion off: time sped up ×"+S.ts.toFixed(1),14,H-14)}x.shadowBlur=0}
+x.fillStyle="#fff";x.shadowColor="rgba(0,0,0,.7)";x.shadowBlur=4;x.font="700 18px sans-serif";x.fillText(p.n+"  ·  gravity "+p.g+" m/s²  ·  air "+($("dr").checked?RHO[cur]:0)+" kg/m³",14,28);
+if(S.on&&S.ts>1.05){x.font="13px sans-serif";x.fillText("Time sped up ×"+S.ts.toFixed(1),14,H-14)}x.shadowBlur=0}
 function loop(now){var dt=Math.min((now-last)/1000,.1);last=now;
-if(S.on){S.t+=dt*S.ts;var b=pos(S.t);S.trail.push(b);if(S.t>=S.T){S.t=S.T;S.on=0;S.land=1;finish()}}
+if(S.on){S.t+=dt*S.ts;if(!S.done&&S.t>=S.Tf){S.done=1;finish()}if(S.t>=S.T){S.t=S.T;S.on=0;S.land=1}S.trail.push(pos(S.t))}
 var tg=.04;if(S.on){var b2=pos(S.t);tg=Math.max(-.1,Math.min(1.35,Math.atan2(b2[1]-Y0,b2[2])))}
 S.pitch+=(tg-S.pitch)*Math.min(1,dt*4);draw();requestAnimationFrame(loop)}
-function throwIt(){var q=vals(),g=PL[cur].g,c=calc(g,q[0],q[1]);S.vx=c.vx;S.vy=c.vy;S.T=c.T;S.R=c.R;S.pk=c.pk;S.t=0;S.on=1;S.land=0;S.trail=[];S.ts=Math.max(1,c.T/7);S.q=q}
-function finish(){var g=PL[cur].g,q=S.q,e=calc(9.81,q[0],q[1]),p=PL[cur];
-$("res").innerHTML="<b>"+p.n+":</b> the ball flew <b>"+S.R.toFixed(1)+" m</b> and peaked at <b>"+S.pk.toFixed(1)+" m</b> in "+S.T.toFixed(1)+" s."+
-"<small>The same throw on Earth: "+e.R.toFixed(1)+" m far, "+e.pk.toFixed(1)+" m high. Here it goes "+(S.R/e.R).toFixed(2)+"× as far.</small>";
-var tr=document.createElement("tr");tr.innerHTML="<td>"+p.n+"</td><td>"+q[0]+" m/s</td><td>"+q[1]+"°</td><td>"+S.R.toFixed(1)+"</td><td>"+S.pk.toFixed(1)+"</td><td>"+S.T.toFixed(1)+"</td>";
+function throwIt(){var q=vals(),r=sim(cur,q[0],q[1],$("dr").checked);S.pts=r.pts;S.T=(r.pts.length-1)*DT;S.Tf=r.f.T;S.R=r.f.R;S.pk=r.f.pk;S.t=0;S.on=1;S.land=0;S.done=0;S.trail=[];S.ts=Math.max(1,S.Tf/7);S.q=q;S.dr=$("dr").checked}
+function finish(){var q=S.q,e=sim(2,q[0],q[1],S.dr).f,p=PL[cur];
+$("res").innerHTML="<b>"+p.n+":</b> the ball first landed <b>"+S.R.toFixed(1)+" m</b> away, peaked at <b>"+S.pk.toFixed(1)+" m</b> and was in the air "+S.Tf.toFixed(1)+" s, then bounced and rolled."+
+"<small>The same throw on Earth"+(S.dr?" (with air)":"")+": "+e.R.toFixed(1)+" m far, "+e.pk.toFixed(1)+" m high. Here it goes "+(S.R/e.R).toFixed(2)+"× as far.</small>";
+var tr=document.createElement("tr");tr.innerHTML="<td>"+p.n+"</td><td>"+q[0]+" m/s</td><td>"+q[1]+"°</td><td>"+S.R.toFixed(1)+"</td><td>"+S.pk.toFixed(1)+"</td><td>"+S.Tf.toFixed(1)+"</td>";
 $("hist").insertBefore(tr,$("hist").firstChild)}
 var pb=[];PL.forEach(function(p,k){var b=document.createElement("button");b.textContent=p.n.split(" ")[0];b.setAttribute("aria-pressed",k==cur);b.onclick=function(){cur=k;pb.forEach(function(o,j){o.setAttribute("aria-pressed",j==k)});S.on=0;S.land=0;S.trail=[];$("res").textContent="Now standing on "+p.n+". Press Throw."};pb.push(b);$("pl").appendChild(b)});
 ["v","a"].forEach(function(id){$(id).oninput=function(){$(id+"v").textContent=this.value;if(!S.on){S.land=0;S.trail=[]}}});
 $("go").onclick=throwIt;window.addEventListener("resize",size);size();requestAnimationFrame(loop);
 })();
 </script>
-</body></html>
+</body>
+</html>
