@@ -167,7 +167,7 @@ $("hint").textContent=a<25?"Flat shot: fast but low":a<40?"Low arc":a<52?"Best r
 function rst(){if(!S.on){S.land=0;S.trail=[]}}
 ["v","a"].forEach(function(id){$(id).oninput=function(){upd();rst()}});
 document.querySelectorAll("[data-set]").forEach(function(b){b.onclick=function(){var t=b.dataset.set.split(":");$(t[0]).value=t[1];upd();rst()}});upd();
-$("go").onclick=throwIt;window.addEventListener("resize",size);size();requestAnimationFrame(loop);
+$("go").onclick=function(){throwIt();$("pl").scrollIntoView({behavior:"smooth",block:"start"})};window.addEventListener("resize",size);size();requestAnimationFrame(loop);
 })();
 </script>
 </body></html>
