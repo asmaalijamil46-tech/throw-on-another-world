@@ -29,6 +29,27 @@ table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:ta
 th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right}
 th:first-child,td:first-child{text-align:left}
 .wrap{overflow-x:auto}
+.ctrl{grid-template-columns:repeat(auto-fit,minmax(250px,1fr));align-items:stretch;gap:12px}
+.card{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column}
+.top{display:flex;justify-content:space-between;align-items:baseline}
+.nm{font-weight:700;font-size:15px}
+.big b{font:700 34px/1 Georgia,serif;color:var(--acc);font-variant-numeric:tabular-nums}
+.big small{font-size:15px;margin-left:3px;color:var(--mute);display:inline}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--acc) var(--p,50%),var(--line) var(--p,50%));margin:14px 0 8px;outline-offset:8px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;background:#fff;border:4px solid var(--acc);box-shadow:0 2px 6px rgba(0,0,0,.35);cursor:grab}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#fff;border:4px solid var(--acc);cursor:grab}
+input[type=range]::-moz-range-track{background:transparent}
+.note{font-size:13px;color:var(--mute);min-height:20px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;padding-top:8px}
+.chips button{padding:4px 11px;font-size:13px;border-radius:999px}
+#dial{width:100%;height:76px;display:block;margin-top:2px}
+.sw{display:flex;gap:12px;align-items:center;cursor:pointer;color:var(--ink);font-size:15px}
+.sw small{display:block;color:var(--mute);font-size:13px}
+.sw input{-webkit-appearance:none;appearance:none;width:46px;height:26px;border-radius:13px;background:var(--line);position:relative;flex:none;cursor:pointer;transition:background .2s;margin:0}
+.sw input::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .2s}
+.sw input:checked{background:var(--acc)}
+.sw input:checked::after{left:23px}
+.card button.throw{margin-top:auto;width:100%;font-size:22px;padding:14px;letter-spacing:.5px}
 </style></head>
 <body><main>
 <h1>Throw a ball on another world</h1>
@@ -37,10 +58,17 @@ th:first-child,td:first-child{text-align:left}
 <canvas id="c" role="img" aria-label="First-person view of a thrown ball"></canvas>
 <div class="panel">
 <div class="ctrl">
-<label>Throw speed: <b id="vv">20</b> m/s<input id="v" type="range" min="5" max="40" value="20"></label>
-<label>Throw angle: <b id="av">45</b>°<input id="a" type="range" min="5" max="85" value="45"></label>
-<label><input type="checkbox" id="dr" checked> Air resistance on</label>
-<div><button class="throw" id="go">Throw!</button></div>
+<div class="card"><div class="top"><span class="nm">Throw speed</span><span class="big"><b id="vv">20</b><small>m/s</small></span></div>
+<input id="v" type="range" min="5" max="40" value="20" aria-label="Throw speed">
+<div class="note" id="kmh"></div>
+<div class="chips"><button data-set="v:10">Toss 10</button><button data-set="v:20">Throw 20</button><button data-set="v:40">Pitch 40</button></div></div>
+<div class="card"><div class="top"><span class="nm">Throw angle</span><span class="big"><b id="av">45</b><small>°</small></span></div>
+<svg id="dial" viewBox="0 0 120 70" aria-hidden="true"><line x1="4" y1="64" x2="116" y2="64" stroke="var(--mute)" stroke-width="2"/><path id="arc" d="" fill="none" stroke="var(--acc)" stroke-width="2" stroke-dasharray="3 3"/><line id="arr" x1="14" y1="64" x2="60" y2="30" stroke="var(--acc)" stroke-width="3" stroke-linecap="round"/><circle id="tip" r="6" fill="#e8452a" stroke="#fff" stroke-width="1.5"/><circle cx="14" cy="64" r="3" fill="var(--ink)"/></svg>
+<input id="a" type="range" min="5" max="85" value="45" aria-label="Throw angle">
+<div class="note" id="hint"></div>
+<div class="chips"><button data-set="a:15">Flat 15°</button><button data-set="a:45">Best 45°</button><button data-set="a:80">Lob 80°</button></div></div>
+<div class="card"><label class="sw"><input type="checkbox" id="dr" checked><span><b>Air resistance</b><small>Real air slows the ball</small></span></label>
+<button class="throw" id="go">Throw!</button></div>
 </div>
 </div>
 <div class="panel" id="res">Choose a planet and press Throw.</div>
@@ -131,7 +159,15 @@ $("res").innerHTML="<b>"+p.n+":</b> the ball first landed <b>"+S.R.toFixed(1)+" 
 var tr=document.createElement("tr");tr.innerHTML="<td>"+p.n+"</td><td>"+q[0]+" m/s</td><td>"+q[1]+"°</td><td>"+S.R.toFixed(1)+"</td><td>"+S.pk.toFixed(1)+"</td><td>"+S.Tf.toFixed(1)+"</td>";
 $("hist").insertBefore(tr,$("hist").firstChild)}
 var pb=[];PL.forEach(function(p,k){var b=document.createElement("button");b.textContent=p.n.split(" ")[0];b.setAttribute("aria-pressed",k==cur);b.onclick=function(){cur=k;pb.forEach(function(o,j){o.setAttribute("aria-pressed",j==k)});S.on=0;S.land=0;S.trail=[];$("res").textContent="Now standing on "+p.n+". Press Throw."};pb.push(b);$("pl").appendChild(b)});
-["v","a"].forEach(function(id){$(id).oninput=function(){$(id+"v").textContent=this.value;if(!S.on){S.land=0;S.trail=[]}}});
+function upd(){var v=+$("v").value,a=+$("a").value,r=a*Math.PI/180,tx=14+56*Math.cos(r),ty=64-56*Math.sin(r);
+["v","a"].forEach(function(id){var e=$(id);e.style.setProperty("--p",(e.value-e.min)/(e.max-e.min)*100+"%");$(id+"v").textContent=e.value});
+$("kmh").textContent=Math.round(v*3.6)+" km/h · "+(v<12?"gentle toss":v<22?"hard throw":v<32?"pro pitcher":"record-breaking arm");
+$("arr").setAttribute("x2",tx);$("arr").setAttribute("y2",ty);$("tip").setAttribute("cx",tx);$("tip").setAttribute("cy",ty);
+$("arc").setAttribute("d","M44 64 A30 30 0 0 0 "+(14+30*Math.cos(r))+" "+(64-30*Math.sin(r)));
+$("hint").textContent=a<25?"Flat shot: fast but low":a<40?"Low arc":a<52?"Best range without air":a<70?"High arc":"Lob: lots of hang time"}
+function rst(){if(!S.on){S.land=0;S.trail=[]}}
+["v","a"].forEach(function(id){$(id).oninput=function(){upd();rst()}});
+document.querySelectorAll("[data-set]").forEach(function(b){b.onclick=function(){var t=b.dataset.set.split(":");$(t[0]).value=t[1];upd();rst()}});upd();
 $("go").onclick=throwIt;window.addEventListener("resize",size);size();requestAnimationFrame(loop);
 })();
 </script>
